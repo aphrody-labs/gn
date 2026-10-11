@@ -260,7 +260,13 @@ def is_gcc(cxx):
 
 def GenerateLastCommitPosition(host, header, generate_dummy):
   ROOT_TAG = 'initial-commit'
-  if not generate_dummy and os.path.isdir(os.path.join(REPO_ROOT, '.git')):
+  vendored_position = os.environ.get('GN_BUILD_LAST_COMMIT_POSITION')
+  if not generate_dummy and vendored_position is not None:
+    mo = re.fullmatch(r'(\d+) \(([0-9a-f]{12,40})\)', vendored_position)
+    if not mo:
+      raise ValueError('GN_BUILD_LAST_COMMIT_POSITION must be N (hex revision)')
+    num, commit_id = mo.groups()
+  elif not generate_dummy and os.path.isdir(os.path.join(REPO_ROOT, '.git')):
     describe_output = subprocess.check_output(
         ['git', 'describe', 'HEAD', '--abbrev=12', '--match', ROOT_TAG],
         shell=host.is_windows(), cwd=REPO_ROOT)
