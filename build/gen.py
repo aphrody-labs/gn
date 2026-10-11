@@ -379,6 +379,7 @@ def WriteGenericNinja(path, static_libraries, executables,
   if platform.is_msvc():
     ninja_header_lines.append('msvc_deps_prefix = ' +
                               DetectMsvcDepsPrefix(cxx, build_dir))
+    ninja_header_lines.append('')
 
   template_filename = os.path.join(SCRIPT_DIR, {
       'msvc': 'build_win.ninja.template',
