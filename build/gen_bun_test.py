@@ -8,11 +8,24 @@ import pathlib
 import tempfile
 import unittest
 from unittest.mock import patch
+from subprocess import CompletedProcess
 
-from gen import GenerateLastCommitPosition, Platform
+from gen import DetectMsvcDepsPrefix, GenerateLastCommitPosition, Platform
 
 
 class VendoredPositionTest(unittest.TestCase):
+  def test_localized_msvc_dependency_prefix(self):
+    def compiler(argv, **kwargs):
+      header = pathlib.Path(argv[-1]).with_name('gn-deps-probe.h')
+      message = 'Remarque\u00a0: inclusion du fichier\u00a0: '
+      return CompletedProcess(argv, 0, b'',
+                              (message + str(header) + '\n').encode('cp1252'))
+    with tempfile.TemporaryDirectory() as directory:
+      with patch('gen.locale.getencoding', return_value='cp1252'):
+        with patch('gen.subprocess.run', side_effect=compiler):
+          self.assertEqual(DetectMsvcDepsPrefix('cl.exe', directory),
+                           'Remarque\u00a0: inclusion du fichier\u00a0:')
+
   def test_pinned_position_and_incremental_header(self):
     with tempfile.TemporaryDirectory() as directory:
       header = str(pathlib.Path(directory) / 'last_commit_position.h')

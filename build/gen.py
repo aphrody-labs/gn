@@ -6,6 +6,7 @@
 """Generates build.ninja that will build GN."""
 
 import argparse
+import locale
 import os
 import pathlib
 import platform
@@ -13,6 +14,7 @@ import re
 import shlex
 import subprocess
 import sys
+import tempfile
 
 from ninja_file import NinjaFile, escape_path_ninja
 
@@ -258,6 +260,22 @@ def is_gcc(cxx):
 
   return ret.returncode == 0 and "#define __GNUC__" in ret.stdout and not "#define __clang__" in ret.stdout
 
+
+def DetectMsvcDepsPrefix(cxx, build_dir):
+  with tempfile.TemporaryDirectory(dir=build_dir) as directory:
+    header = os.path.join(directory, 'gn-deps-probe.h')
+    source = os.path.join(directory, 'gn-deps-probe.cc')
+    pathlib.Path(header).write_text('\n')
+    pathlib.Path(source).write_text('#include "gn-deps-probe.h"\n')
+    result = subprocess.run([cxx, '/nologo', '/showIncludes', '/EP', source],
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                            check=True)
+    header_bytes = header.encode(locale.getencoding())
+    for line in (result.stdout + result.stderr).splitlines():
+      if line.endswith(header_bytes):
+        return line[:-len(header_bytes)].rstrip().decode(locale.getencoding())
+    raise ValueError('MSVC /showIncludes did not report the probe header')
+
 def GenerateLastCommitPosition(host, header, generate_dummy):
   ROOT_TAG = 'initial-commit'
   vendored_position = os.environ.get('GN_BUILD_LAST_COMMIT_POSITION')
@@ -357,6 +375,10 @@ def WriteGenericNinja(path, static_libraries, executables,
     '  depfile = build.ninja.d',
     '',
   ]
+
+  if platform.is_msvc():
+    ninja_header_lines.append('msvc_deps_prefix = ' +
+                              DetectMsvcDepsPrefix(cxx, build_dir))
 
   template_filename = os.path.join(SCRIPT_DIR, {
       'msvc': 'build_win.ninja.template',
