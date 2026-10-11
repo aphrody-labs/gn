@@ -534,7 +534,7 @@ def WriteGenericNinja(path, static_libraries, executables,
       pathlib.Path(os.path.expandvars(gen_out_dir))
     )
 
-  with open(path, 'w') as f:
+  with open(path, 'w', encoding='utf-8') as f:
     f.write('\n'.join(ninja_header_lines))
     f.write(ninja_template)
     f.write('\n'.join(ninja_lines))
